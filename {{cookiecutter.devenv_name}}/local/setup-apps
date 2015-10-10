@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+# Setup applications from git repositories using configuration.yaml
+import os
+import subprocess
+import generateconfig
+
+paths = {
+  'apps': '/vagrant/apps'
+}
+
+def say(app_name, message):
+    print app_name, '-', str(message)
+
+def gitSetup(app_name, repo, branch):
+    import git
+    app_path = paths['apps'] + '/' + app_name
+    say(app_name,'Grabbing latest code from upstream')
+
+    # Pull from upstream git repository
+    if not os.path.exists(app_path):
+        # Fresh clone
+        git.Repo.clone_from(repo,app_path)
+        repo = git.Repo(app_path)
+
+        #Just in case there is a sub module
+        subprocess.check_output(['git', 'submodule', 'update', '--init'], cwd=app_path)
+    else:
+        # Fetch latest upstream for an existing repo
+        repo = git.Repo(app_path)
+        try:
+            repo.remotes['origin'].fetch()
+            subprocess.check_output(['git', 'submodule', 'update', '--init'], cwd=app_path)
+        except AssertionError:
+            say(app_name,'Unable to fetch latest code as there are conflicts. Run git fetch automatically')
+
+    # Switch git branches and create if necessary
+    newbranch = None
+    for b in repo.branches:
+        if b.name == branch:
+            newbranch = b
+            say(app_name,'Using %s branch' % b.name)
+    if not newbranch:
+        newbranch = repo.create_head(branch)
+        say(app_name,"Creating %s branch" % branch)
+    repo.head.reference = newbranch
+
+    return app_path
+
+
+# Setup applications
+def setup(app_name, app_conf):
+    gitSetup(app_name, app_conf['repo'], app_conf['branch'])
+    # Create log directory
+    logpath = '/vagrant/logs/' + app_name
+    if not os.path.exists(logpath):
+        os.makedirs(logpath)
+
+if __name__ == '__main__':
+    # Load configuration.yaml
+    import multiprocessing
+    import yaml
+    stream = file('/vagrant/apps.yml')
+    config = yaml.load(stream)
+
+    # Set up basic directory structure
+    for name, path in paths.iteritems():
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+    # Setup and configure applications
+    process_list = []
+    for app,conf in config['applications'].iteritems():
+        proc = multiprocessing.Process(target=setup, args=(app,conf))
+        process_list.append(proc)
+        proc.start()
+
+    # Loop until all application processes have finished
+    processes_finished = False
+    while not processes_finished:
+        process_still_alive = False
+        for app_proc in process_list:
+            if app_proc.is_alive():
+                process_still_alive = True
+        if not process_still_alive:
+            processes_finished = True
+
+    #create or re-create /vagrant/config.yml
+    say("", "Generating application configuration")
+    generateconfig.generate_configuration()
+
+    say("","Start all containers")
+    subprocess.check_output(['sudo', 'docker-compose', '-f', '/vagrant/config.yml', 'up', '-d'], stderr=subprocess.STDOUT, cwd='/vagrant')

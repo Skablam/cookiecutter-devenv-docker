@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+HOME='/home/vagrant'
+
+if [[ ! $(id vagrant) ]]; then
+  echo "You must run $0 inside your Vagrant environment"
+  exit 1
+fi
+
+echo 'cd /vagrant' >> ${HOME}/.bash_profile
+
+# Change prompt name to {{ cookiecutter.devenv_name }}
+echo 'export PS1=" \033[1;34m{{ cookiecutter.devenv_name }}\033[0m \033[1;31m$ \033[0m"' >> ${HOME}/.bash_profile
+
+# Add local to PATH
+echo 'export PATH=$PATH:/vagrant/local' >> ${HOME}/.bash_profile
+
+sudo chown vagrant:vagrant /vagrant/local
+
+[ ! -d /vagrant/logs ] && mkdir -p /vagrant/logs
+
+echo "- - - Installing system dependencies - - -"
+sudo yum install -q -y git GitPython PyYAML python-devel python-pip
+
+echo '- - - Installing docker - - -'
+sudo yum -q -y update
+sudo yum -y install docker
+sudo groupadd docker
+sudo usermod -aG docker vagrant
+sudo pip install -U docker-compose
+sudo chkconfig docker on
+systemctl enable docker.service
+systemctl start docker.service
+
+#add helpful aliases
+echo "source /vagrant/local/add-commands.sh" >> ${HOME}/.bash_profile
+
+echo -e 'Host github.com\n\tStrictHostKeyChecking no\n' >> /home/vagrant/.ssh/config

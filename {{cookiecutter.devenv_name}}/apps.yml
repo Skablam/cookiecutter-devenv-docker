@@ -1,0 +1,6 @@
+applications:
+
+    flask-docker-example:
+      repo: git@github.com:Skablam/Flask-Docker-Example.git
+      branch: master
+      port: 7676
