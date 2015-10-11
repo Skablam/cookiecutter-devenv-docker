@@ -54,7 +54,7 @@ Docker-Compose [commands](https://docs.docker.com/compose/reference/) can then b
  run *appname* *command*  - Run commands inside an application container.
 ```
 
-See the Docker-Compose [commands](https://docs.docker.com/compose/reference/) for further detail and more options.
+See the Docker-Compose [commands](https://docs.docker.com/compose/reference/) for further detail and more options. Note normally the file is called docker-compose.yml rather than config.yml. To specify a custom file you use -f i.e. sudo docker-compose -f /vagrant/config/.yml *command*.
 
 ## Working On and Debugging an Application
 
